@@ -1,4 +1,6 @@
 import argparse
+import json
+import requests
 import sqlite3
 import sys
 
@@ -24,6 +26,23 @@ def get_records(conn, db_table):
     except sqlite3.OperationalError as e:
         sys.exit(e)
 
+def insert_data(api_endpoint, records):
+    total_records = 0  # Number of records inserted
+    headers = { 'Content-type': 'application/json' }
+    for record in records:
+        record.pop('id')  # Ignore 'id' column from table records
+        try:
+            r = requests.post(url=api_endpoint, data=json.dumps(record), headers=headers)
+            if r.status_code == 200:
+                total_records += 1
+            else:
+                r.raise_for_status()
+        except requests.exceptions.RequestException as e:
+            print(e)
+            break
+
+    print('Inserted records: {}'.format(total_records))
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Insert data from a sqlite db table into an API endpoint.')
     parser.add_argument('db_file_name', help='Name of the sqlite database file to connect to (must be in the same directory as this script)')
@@ -33,4 +52,4 @@ if __name__ == '__main__':
 
     conn = connect_db(args.db_file_name)
     records = get_records(conn, args.db_table_name)
-    print(len(records))
+    insert_data(args.api_endpoint, records)
